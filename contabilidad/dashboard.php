@@ -24,17 +24,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute(['tipo' => $tipo_impuesto, 'periodo' => $periodo, 'monto' => $monto, 'id' => $id_impuesto]);
         $mensaje = "¡Impuesto actualizado con éxito!";
     } else {
-        // Insertar (Create)
-        $stmt = $pdo->prepare("INSERT INTO impuesto_pago (id_usuario, tipo_impuesto, periodo, monto_impuesto) VALUES (:usuario, :tipo, :periodo, :monto)");
+        // Insertar (Create) con estado = 1 (Activo)
+        $stmt = $pdo->prepare("INSERT INTO impuesto_pago (id_usuario, tipo_impuesto, periodo, monto_impuesto, estado) VALUES (:usuario, :tipo, :periodo, :monto, 1)");
         $stmt->execute(['usuario' => $id_usuario, 'tipo' => $tipo_impuesto, 'periodo' => $periodo, 'monto' => $monto]);
         $mensaje = "¡Impuesto registrado con éxito!";
     }
 }
 
-// 2. Lógica para Eliminar (Delete)
+// 2. Lógica para BORRADO LÓGICO (Soft Delete)
 if (isset($_GET['eliminar'])) {
     $id_impuesto = $_GET['eliminar'];
-    $stmt = $pdo->prepare("DELETE FROM impuesto_pago WHERE id_impuesto = :id");
+    // En lugar de DELETE, hacemos UPDATE del estado a 0 (false)
+    $stmt = $pdo->prepare("UPDATE impuesto_pago SET estado = 0 WHERE id_impuesto = :id");
     $stmt->execute(['id' => $id_impuesto]);
     header('Location: dashboard.php');
     exit;
@@ -43,13 +44,13 @@ if (isset($_GET['eliminar'])) {
 // 3. Obtener registro para Editar si se solicitó
 $impuestoEdit = null;
 if (isset($_GET['editar'])) {
-    $stmt = $pdo->prepare("SELECT * FROM impuesto_pago WHERE id_impuesto = :id");
+    $stmt = $pdo->prepare("SELECT * FROM impuesto_pago WHERE id_impuesto = :id AND estado = 1");
     $stmt->execute(['id' => $_GET['editar']]);
     $impuestoEdit = $stmt->fetch(PDO::FETCH_ASSOC);
 }
 
-// 4. Leer todos los registros (Read)
-$stmt = $pdo->prepare("SELECT i.*, u.username FROM impuesto_pago i JOIN usuarios u ON i.id_usuario = u.id_usuario ORDER BY i.fecha_registro_impuesto DESC");
+// 4. Leer todos los registros ACTIVOS (Read - Solo estado = 1)
+$stmt = $pdo->prepare("SELECT i.*, u.username FROM impuesto_pago i JOIN usuarios u ON i.id_usuario = u.id_usuario WHERE i.estado = 1 ORDER BY i.fecha_registro_impuesto DESC");
 $stmt->execute();
 $impuestos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
@@ -229,7 +230,7 @@ $impuestos = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     </form>
                 </div>
 
-                <!-- Tabla de Historial (CRUD Read/Delete/Update) -->
+                <!-- Tabla de Historial -->
                 <div class="card">
                     <h3>Historial de Pasivos Tributarios</h3>
                     <table>

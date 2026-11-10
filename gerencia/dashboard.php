@@ -2,6 +2,7 @@
 session_start();
 require_once '../conexion.php';
 
+// Validar que sea el usuario de Gerencia
 if (!isset($_SESSION['usuario_id']) || $_SESSION['rol'] !== 'Gerencia') {
     header('Location: ../index.php');
     exit;
@@ -9,22 +10,26 @@ if (!isset($_SESSION['usuario_id']) || $_SESSION['rol'] !== 'Gerencia') {
 
 $periodoFiltro = isset($_GET['periodo']) ? trim($_GET['periodo']) : '';
 
-$stmtTotal = $pdo->query("SELECT SUM(monto_impuesto) as total FROM impuesto_pago");
+// 1. Total acumulado de registros activos
+$stmtTotal = $pdo->query("SELECT SUM(monto_impuesto) as total FROM impuesto_pago WHERE estado = 1");
 $totalImpuestos = $stmtTotal->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
 
-$stmtConteo = $pdo->query("SELECT COUNT(*) as cantidad FROM impuesto_pago");
+// 2. Conteo de registros activos
+$stmtConteo = $pdo->query("SELECT COUNT(*) as cantidad FROM impuesto_pago WHERE estado = 1");
 $conteoImpuestos = $stmtConteo->fetch(PDO::FETCH_ASSOC)['cantidad'] ?? 0;
 
+// 3. Consulta con filtro de estado = 1
 if (!empty($periodoFiltro)) {
-    $stmt = $pdo->prepare("SELECT i.*, u.username FROM impuesto_pago i JOIN usuarios u ON i.id_usuario = u.id_usuario WHERE i.periodo LIKE :periodo ORDER BY i.fecha_registro_impuesto DESC");
+    $stmt = $pdo->prepare("SELECT i.*, u.username FROM impuesto_pago i JOIN usuarios u ON i.id_usuario = u.id_usuario WHERE i.estado = 1 AND i.periodo LIKE :periodo ORDER BY i.fecha_registro_impuesto DESC");
     $stmt->execute(['periodo' => "%$periodoFiltro%"]);
 } else {
-    $stmt = $pdo->prepare("SELECT i.*, u.username FROM impuesto_pago i JOIN usuarios u ON i.id_usuario = u.id_usuario ORDER BY i.fecha_registro_impuesto DESC");
+    $stmt = $pdo->prepare("SELECT i.*, u.username FROM impuesto_pago i JOIN usuarios u ON i.id_usuario = u.id_usuario WHERE i.estado = 1 ORDER BY i.fecha_registro_impuesto DESC");
     $stmt->execute();
 }
 $impuestos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-$stmtResumen = $pdo->query("SELECT tipo_impuesto, SUM(monto_impuesto) as subtotal, COUNT(*) as cantidad FROM impuesto_pago GROUP BY tipo_impuesto");
+// 4. Resumen por tipos sólo de registros activos
+$stmtResumen = $pdo->query("SELECT tipo_impuesto, SUM(monto_impuesto) as subtotal, COUNT(*) as cantidad FROM impuesto_pago WHERE estado = 1 GROUP BY tipo_impuesto");
 $resumenTipos = $stmtResumen->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <!DOCTYPE html>
@@ -149,9 +154,9 @@ $resumenTipos = $stmtResumen->fetchAll(PDO::FETCH_ASSOC);
                 <input type="text" placeholder="Buscar proyectos, movimientos o empleados..." disabled>
             </div>
             <div class="user-profile">
-                <div class="user-avatar">LV</div>
+                <div class="user-avatar">LA</div>
                 <div class="user-info">
-                    <span>Laura Vargas</span>
+                    <span>Laura</span>
                     <small>Gerencia</small>
                 </div>
                 <a href="../logout.php" class="logout-link">Salir</a>
